@@ -14,6 +14,15 @@ Embeddings are obtained with [OpenKE](https://github.com/thunlp/OpenKE) Library.
 3. Copy pre-trained files back to datasets/<dataset> directory.
 4. Specific the filename in `toml` type configuration file (`embed_fn=<openke output>`) 
 
+## Requirements
+
+```requirements.txt
+python>=3.10
+torch>=1.11
+rich
+typer
+```
+
 ## Run
 
 `python trainer.py fit <config>.toml`
