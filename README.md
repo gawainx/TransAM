@@ -7,12 +7,16 @@
 
 ## To prepare data
 
-Embeddings are obtained with [OpenKE](https://github.com/thunlp/OpenKE) Library. 
+You can obtain embeddings with [OpenKE](https://github.com/thunlp/OpenKE) Library or from [GMatching](https://github.com/xwhan/One-shot-Relational-Learning) repo.
+
+### Use [OpenKE](https://github.com/thunlp/OpenKE)
 
 1. Run `python process.py <wiki / nell>` to generate data for OpenKE pretraining. (files in `<dataset>/openke`)
 2. Copy files and run [OpenKE](https://github.com/thunlp/OpenKE) traning.
 3. Copy pre-trained files back to datasets/<dataset> directory.
 4. Specific the filename in `toml` type configuration file (`embed_fn=<openke output>`) 
+
+**Note**: If `embed_fn` not exists, our code will automatically use GMatching embeddings.
 
 ## Requirements
 
