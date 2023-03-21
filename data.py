@@ -225,6 +225,70 @@ class DataPath:
     def __str__(self):
         return f"[HOME] {self.parent}\n[DATASET] {self.dataset}"
 
+    def load_embed(self, embed_model, *args):
+        """Using GMatching embeddings"""
+        # gen symbol2id, with embedding
+        if not op.exists(self.symbol2vec(embed_model)):
+            result = {}
+            symbol_id = {}
+            rel2id = json.load(self.rel2ids)  # relation2id contains inverse rel
+            ent2id = json.load(self.ent2ids)
+
+            if embed_model in ['DistMult', 'TransE', 'ComplEx', 'RESCAL']:
+                efn = self.parent + '/embed/entity2vec.' + embed_model
+                rfn = self.parent + '/embed/relation2vec.' + embed_model
+                assert os.path.exists(efn) and os.path.exists(rfn), f"{efn} and {rfn} not exist !"
+                ent_embed = np.loadtxt(self.parent + '/embed/entity2vec.' + embed_model)
+                rel_embed = np.loadtxt(
+                        self.parent + '/embed/relation2vec.' + embed_model)  # contain inverse edge
+
+                if embed_model == 'ComplEx':
+                    # normalize the complex embeddings
+                    ent_mean = np.mean(ent_embed, axis=1, keepdims=True)
+                    ent_std = np.std(ent_embed, axis=1, keepdims=True)
+                    rel_mean = np.mean(rel_embed, axis=1, keepdims=True)
+                    rel_std = np.std(rel_embed, axis=1, keepdims=True)
+                    eps = 1e-3
+                    ent_embed = (ent_embed - ent_mean) / (ent_std + eps)
+                    rel_embed = (rel_embed - rel_mean) / (rel_std + eps)
+
+                assert ent_embed.shape[0] == len(ent2id.keys())
+                assert rel_embed.shape[0] == len(rel2id.keys())
+                self.num_ents = len(ent2id.keys())
+
+                i = 0
+                embeddings = []
+                for key in rel2id.keys():
+                    if key not in ['', 'OOV']:
+                        symbol_id[key] = i
+                        i += 1
+                        embeddings.append(list(rel_embed[rel2id[key], :]))
+
+                for key in ent2id.keys():
+                    if key not in ['', 'OOV']:
+                        symbol_id[key] = i
+                        i += 1
+                        embeddings.append(list(ent_embed[ent2id[key], :]))
+                symbol_id[self.PAD_SYM] = i
+                embeddings.append(list(np.zeros((rel_embed.shape[1],))))
+                self.pad_idx = i
+                i += 1
+                embeddings = np.array(embeddings)
+                assert embeddings.shape[0] == len(symbol_id.keys()), \
+                    f"{embeddings.shape=} but {len(symbol_id.keys())=}"
+                embed_th = torch.from_numpy(embeddings).to(dtype=torch.float)
+                result['symbol2id'] = symbol_id
+                result['embeddings'] = embed_th
+                result['PAD_SYM'] = self.PAD_SYM
+                result['PAD_IDX'] = self.pad_idx
+                torch.save(result, self.symbol2vec(embed_model))
+
+                return symbol_id, embed_th
+        else:
+            result = torch.load(self.symbol2vec(embed_model))
+            self.pad_idx = result['PAD_IDX']
+            return result['symbol2id'], result['embeddings']
+
     def load_openke(self, embed_model: str, fn: str):
         symbol_id = {}
         rel2id = json.load(self.rel2ids)
@@ -288,7 +352,11 @@ class Dataset:
         self.e1rel_e2 = json.load(self.data_path.e1rel_e2)
         self.few = few
         self.logger.info("Loading pretrain...")
-        self.symbol2id, self.symbol2vec = self.data_path.load_openke(pretrained, fn=openke_fn)
+        try:
+            self.symbol2id, self.symbol2vec = self.data_path.load_openke(pretrained, fn=openke_fn)
+        except FileNotFoundError:
+            self.logger.info("Try Using GMatching Embeddings...")
+            self.symbol2id, self.symbol2vec = self.data_path.load_embed(pretrained)
         self.pad_idx = self.data_path.pad_idx
         self.id2symbol = {v: k for k, v in self.symbol2id.items()}
         self.logger.info(f"Total {len(self.symbol2id)} symbols")
