@@ -306,7 +306,6 @@ class DataPath:
         assert ent_embed.shape[0] == len(ent2id.keys())
         assert rel_embed.shape[0] == len(rel2id.keys())
         self.num_ents = len(ent2id.keys())
-
         i = 0
         embeddings = []
         for key in rel2id.keys():
