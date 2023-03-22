@@ -19,7 +19,7 @@ We also provide an option to help obtain pretrain embeddings from sketch with [O
 ## Requirements
 
 ```requirements.txt
-python>=3.10
+python==3.10
 torch>=1.11
 rich
 typer
